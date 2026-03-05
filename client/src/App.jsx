@@ -10,6 +10,7 @@ import RequestList from './pages/Requests/index';
 import NewRequest from './pages/Requests/NewRequest';
 import RequestDetail from './pages/Requests/RequestDetail';
 import RespondPage from './pages/Requests/RespondPage';
+import Register from './pages/Register';
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -22,6 +23,7 @@ export default function App() {
     <Routes>
       {/* Public */}
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
       <Route path="/respond/:token" element={<RespondPage />} />
 
       {/* Protected */}

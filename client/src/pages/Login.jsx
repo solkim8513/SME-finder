@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import toast from 'react-hot-toast';
@@ -54,6 +54,10 @@ export default function Login() {
             {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
+        <p className="text-sm text-center text-gray-500 mt-4">
+          No account?{' '}
+          <Link to="/register" className="text-blue-600 hover:underline">Create one</Link>
+        </p>
       </div>
     </div>
   );

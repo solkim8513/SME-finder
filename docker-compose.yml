@@ -10,6 +10,7 @@ services:
     volumes:
       - sme_pgdata:/var/lib/postgresql/data
       - ./server/src/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./server/src/db/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql
     ports:
       - "5433:5432"     # exposed on 5433 to avoid conflict with other Postgres instances
     healthcheck:
