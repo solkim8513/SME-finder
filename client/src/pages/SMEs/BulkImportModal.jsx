@@ -27,7 +27,44 @@ const HEADER_MAP = {
 };
 
 function normalizeHeader(h) {
-  return String(h).toLowerCase().trim().replace(/[^a-z0-9 ]/g, '');
+  return String(h || '')
+    .replace(/\uFEFF/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function getMappedField(header) {
+  const normalized = normalizeHeader(header);
+  if (HEADER_MAP[normalized]) return HEADER_MAP[normalized];
+
+  if (normalized.startsWith('name')) return 'name';
+  if (normalized.startsWith('skillset') || normalized.startsWith('skill set')) return 'skillsets';
+  if (normalized.startsWith('certification')) return 'certifications';
+  if (normalized.startsWith('contract title and position')) return 'contract_title';
+  if (normalized.startsWith('contract title')) return 'contract_title';
+  if (normalized.startsWith('position')) return 'position';
+  if (normalized.startsWith('short job description') || normalized.startsWith('job description')) return 'job_description';
+  if (normalized.startsWith('clearance level') || normalized === 'clearance') return 'clearance_level';
+  if (normalized.startsWith('ok to contact directly') || normalized.startsWith('ok to contact')) return 'contact_availability';
+  if (normalized.startsWith('preferred method') || normalized.startsWith('preferred contact') || normalized.startsWith('contact method')) return 'preferred_contact';
+
+  return null;
+}
+
+function cleanText(value) {
+  return String(value || '')
+    .replace(/\uFFFD/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function splitMultiValue(value) {
+  if (!value) return [];
+  return String(value)
+    .split(/\r?\n|;|•/g)
+    .map(part => part.replace(/^[,\s]+|[,\s]+$/g, '').trim())
+    .filter(Boolean);
 }
 
 function parseContactAvailability(val) {
@@ -52,48 +89,75 @@ function parsePreferredContact(val) {
 function parseRow(headers, row) {
   const obj = {};
   headers.forEach((h, i) => {
-    const field = HEADER_MAP[normalizeHeader(h)];
+    const field = getMappedField(h);
     if (field) obj[field] = row[i] ?? '';
   });
 
+  const name = cleanText(obj.name);
+  if (!name || /^example:/i.test(name)) return null;
+
   return {
-    name: String(obj.name || '').trim(),
-    skillsets: obj.skillsets
-      ? String(obj.skillsets).split(';').map(s => s.trim()).filter(Boolean)
-      : [],
-    certifications: obj.certifications
-      ? String(obj.certifications).split(';').map(s => s.trim()).filter(Boolean)
-      : [],
-    contract_title: String(obj.contract_title || '').trim() || null,
-    position: String(obj.position || '').trim() || null,
-    job_description: String(obj.job_description || '').trim() || null,
-    clearance_level: String(obj.clearance_level || '').trim() || null,
+    name,
+    skillsets: splitMultiValue(obj.skillsets),
+    certifications: splitMultiValue(obj.certifications),
+    contract_title: cleanText(obj.contract_title) || null,
+    position: cleanText(obj.position) || null,
+    job_description: cleanText(obj.job_description) || null,
+    clearance_level: cleanText(obj.clearance_level) || null,
     contact_availability: parseContactAvailability(obj.contact_availability),
     preferred_contact: parsePreferredContact(obj.preferred_contact),
   };
 }
 
 function parseCSV(text) {
-  const lines = text.split(/\r?\n/).filter(l => l.trim());
-  if (lines.length < 2) return [];
+  const rows = [];
+  let currentRow = [];
+  let currentCell = '';
+  let inQuote = false;
 
-  function splitLine(line) {
-    const cols = [];
-    let current = '';
-    let inQuote = false;
-    for (let i = 0; i < line.length; i++) {
-      if (line[i] === '"') { inQuote = !inQuote; continue; }
-      if (line[i] === ',' && !inQuote) { cols.push(current); current = ''; continue; }
-      current += line[i];
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+
+    if (char === '"') {
+      if (inQuote && text[i + 1] === '"') {
+        currentCell += '"';
+        i++;
+      } else {
+        inQuote = !inQuote;
+      }
+      continue;
     }
-    cols.push(current);
-    return cols;
+
+    if (char === ',' && !inQuote) {
+      currentRow.push(currentCell);
+      currentCell = '';
+      continue;
+    }
+
+    if ((char === '\n' || char === '\r') && !inQuote) {
+      if (char === '\r' && text[i + 1] === '\n') i++;
+      currentRow.push(currentCell);
+      rows.push(currentRow);
+      currentRow = [];
+      currentCell = '';
+      continue;
+    }
+
+    currentCell += char;
   }
 
-  const headers = splitLine(lines[0]);
-  return lines.slice(1)
-    .map(line => parseRow(headers, splitLine(line)))
-    .filter(r => r.name);
+  if (currentCell.length > 0 || currentRow.length > 0) {
+    currentRow.push(currentCell);
+    rows.push(currentRow);
+  }
+
+  const normalizedRows = rows.filter(row => row.some(cell => String(cell || '').trim()));
+  if (normalizedRows.length < 2) return [];
+
+  const headers = normalizedRows[0];
+  return normalizedRows.slice(1)
+    .map(row => parseRow(headers, row))
+    .filter(Boolean);
 }
 
 export default function BulkImportModal({ onClose, onImported }) {
@@ -108,7 +172,11 @@ export default function BulkImportModal({ onClose, onImported }) {
     const ext = file.name.split('.').pop().toLowerCase();
 
     if (ext === 'csv') {
-      const text = await file.text();
+      const buf = await file.arrayBuffer();
+      let text = new TextDecoder('utf-8').decode(buf);
+      if (text.includes('\uFFFD')) {
+        text = new TextDecoder('windows-1252').decode(buf);
+      }
       const parsed = parseCSV(text);
       setRows(parsed);
       if (parsed.length === 0) toast.error('No valid rows found. Check column headers.');
@@ -123,7 +191,7 @@ export default function BulkImportModal({ onClose, onImported }) {
         const headers = json[0].map(h => String(h || ''));
         const parsed = json.slice(1)
           .map(row => parseRow(headers, row.map(c => String(c ?? ''))))
-          .filter(r => r.name);
+          .filter(Boolean);
         setRows(parsed);
         if (parsed.length === 0) toast.error('No valid rows found. Check column headers.');
       } catch {
