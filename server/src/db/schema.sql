@@ -130,6 +130,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS after_rating_insert ON sme_ratings;
 CREATE TRIGGER after_rating_insert
 AFTER INSERT ON sme_ratings
 FOR EACH ROW EXECUTE FUNCTION update_sme_avg_rating();
@@ -145,10 +146,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS smes_updated_at ON smes;
 CREATE TRIGGER smes_updated_at
 BEFORE UPDATE ON smes
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS sme_requests_updated_at ON sme_requests;
 CREATE TRIGGER sme_requests_updated_at
 BEFORE UPDATE ON sme_requests
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();

@@ -2,10 +2,10 @@
   "name": "sme-finder",
   "version": "1.0.0",
   "scripts": {
-    "build": "cd client && npm install && npm run build",
+    "build": "cd client && npm install --include=dev && npm run build",
     "start": "node server/src/index.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": "20.x"
   }
 }
