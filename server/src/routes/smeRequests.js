@@ -38,6 +38,54 @@ router.get('/', auth, async (req, res) => {
   res.json({ requests: rows, total: parseInt(countRows[0]?.count || 0) });
 });
 
+// POST /api/sme-requests/suggest — top-3 SME candidates by keyword scoring
+router.post('/suggest', auth, async (req, res) => {
+  const { topic = '', opportunity_name = '' } = req.body;
+  if (!topic.trim()) return res.json({ suggestions: [] });
+
+  const { rows: smes } = await db.query(
+    `SELECT id, name, skillsets, certifications, job_description, contract_title, avg_rating
+     FROM smes WHERE is_active = TRUE`
+  );
+
+  const stopWords = new Set([
+    'the','a','an','and','or','for','to','in','of','with','that','is','are','be',
+    'have','need','looking','expert','experience','knowledge','support','provide',
+  ]);
+  const tokens = (topic + ' ' + opportunity_name)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(t => t.length > 2 && !stopWords.has(t));
+
+  if (tokens.length === 0) return res.json({ suggestions: [] });
+
+  const scored = smes.map(sme => {
+    const haystack = [
+      ...sme.skillsets,
+      ...sme.certifications,
+      sme.job_description || '',
+      sme.contract_title || '',
+    ].join(' ').toLowerCase();
+
+    const matched = tokens.filter(t => haystack.includes(t));
+    const score = matched.length + (sme.avg_rating ? parseFloat(sme.avg_rating) * 0.5 : 0);
+    const match_reason = sme.skillsets
+      .filter(s => tokens.some(t => s.toLowerCase().includes(t)))
+      .slice(0, 4);
+
+    return { id: sme.id, name: sme.name, skillsets: sme.skillsets,
+             avg_rating: sme.avg_rating, score, match_reason };
+  });
+
+  const top3 = scored
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+
+  res.json({ suggestions: top3 });
+});
+
 // GET /api/sme-requests/:id — detail with notification log
 router.get('/:id', auth, async (req, res) => {
   const { rows } = await db.query(

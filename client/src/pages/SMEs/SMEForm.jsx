@@ -57,7 +57,7 @@ export default function SMEForm() {
     position: '',
     job_description: '',
     clearance_level: '',
-    ok_to_contact_directly: false,
+    contact_availability: 'no',
     preferred_contact: 'email',
   });
   const [saving, setSaving] = useState(false);
@@ -81,7 +81,7 @@ export default function SMEForm() {
           position: s.position || '',
           job_description: s.job_description || '',
           clearance_level: s.clearance_level || '',
-          ok_to_contact_directly: s.ok_to_contact_directly || false,
+          contact_availability: s.contact_availability || 'no',
           preferred_contact: s.preferred_contact || 'email',
         });
       }).catch(() => toast.error('SME not found'));
@@ -161,7 +161,7 @@ export default function SMEForm() {
           <div>
             <label className="label">Preferred Contact Method</label>
             <div className="flex gap-4">
-              {['email', 'teams'].map(c => (
+              {['email', 'teams', 'call'].map(c => (
                 <label key={c} className="flex items-center gap-2 cursor-pointer">
                   <input type="radio" value={c} checked={form.preferred_contact === c} onChange={() => set('preferred_contact', c)} />
                   <span className="text-sm capitalize">{c}</span>
@@ -218,15 +218,13 @@ export default function SMEForm() {
           </div>
 
           <div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.ok_to_contact_directly}
-                onChange={e => set('ok_to_contact_directly', e.target.checked)}
-                className="rounded"
-              />
-              <span className="text-sm text-gray-700">OK to contact directly (no PM needed)</span>
-            </label>
+            <label className="label">OK to contact directly?</label>
+            <select className="input" value={form.contact_availability} onChange={e => set('contact_availability', e.target.value)}>
+              <option value="no">No</option>
+              <option value="yes (business hour)">Yes — business hours only</option>
+              <option value="yes (lunchtime)">Yes — lunchtime</option>
+              <option value="yes (afterhour)">Yes — after hours</option>
+            </select>
           </div>
         </div>
 

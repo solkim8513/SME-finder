@@ -1,7 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../../api';
 import toast from 'react-hot-toast';
+
+function StarRating({ value }) {
+  if (!value) return null;
+  return (
+    <span className="text-yellow-500 text-xs">
+      {'★'.repeat(Math.round(value))}{'☆'.repeat(5 - Math.round(value))}
+      <span className="text-gray-400 ml-1">{parseFloat(value).toFixed(1)}</span>
+    </span>
+  );
+}
 
 export default function NewRequest() {
   const navigate = useNavigate();
@@ -18,9 +28,35 @@ export default function NewRequest() {
   const [smeSearch, setSmeSearch] = useState(location.state?.sme_name || '');
   const [saving, setSaving] = useState(false);
 
+  // Suggestions state
+  const [suggestions, setSuggestions] = useState([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const debounceRef = useRef(null);
+
   useEffect(() => {
     api.get('/smes').then(res => setSmes(res.data)).catch(console.error);
   }, []);
+
+  // Debounce topic changes → fetch suggestions
+  function handleTopicChange(value) {
+    set('topic', value);
+    clearTimeout(debounceRef.current);
+    if (!value.trim()) { setSuggestions([]); return; }
+    debounceRef.current = setTimeout(async () => {
+      setLoadingSuggestions(true);
+      try {
+        const res = await api.post('/sme-requests/suggest', {
+          topic: value,
+          opportunity_name: form.opportunity_name,
+        });
+        setSuggestions(res.data.suggestions || []);
+      } catch {
+        // silently fail — suggestions are optional
+      } finally {
+        setLoadingSuggestions(false);
+      }
+    }, 800);
+  }
 
   const filteredSMEs = smes.filter(s =>
     s.name.toLowerCase().includes(smeSearch.toLowerCase()) ||
@@ -31,6 +67,12 @@ export default function NewRequest() {
 
   function set(field, value) {
     setForm(f => ({ ...f, [field]: value }));
+  }
+
+  function selectSME(sme) {
+    set('assigned_sme_id', sme.id);
+    setSmeSearch(sme.name);
+    setSuggestions([]);
   }
 
   async function handleSubmit(e) {
@@ -71,11 +113,56 @@ export default function NewRequest() {
               className="input"
               rows={3}
               value={form.topic}
-              onChange={e => set('topic', e.target.value)}
+              onChange={e => handleTopicChange(e.target.value)}
               placeholder="Describe what expertise or contribution is needed…"
               required
             />
           </div>
+
+          {/* AI Suggestions */}
+          {(loadingSuggestions || suggestions.length > 0) && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                {loadingSuggestions ? 'Finding matching SMEs…' : 'Top Matches — click to select'}
+              </p>
+              {loadingSuggestions ? (
+                <div className="flex gap-2">
+                  {[1,2,3].map(i => (
+                    <div key={i} className="flex-1 h-16 bg-gray-100 rounded-lg animate-pulse" />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => selectSME(s)}
+                      className={`text-left p-3 rounded-lg border-2 transition-all hover:border-blue-400 hover:bg-blue-50 ${
+                        form.assigned_sme_id === s.id
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1 mb-1">
+                        <span className="text-xs font-bold text-gray-400">#{i + 1}</span>
+                      </div>
+                      <div className="font-medium text-sm text-gray-900 truncate">{s.name}</div>
+                      <StarRating value={s.avg_rating} />
+                      {s.match_reason.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {s.match_reason.map(r => (
+                            <span key={r} className="text-xs bg-yellow-100 text-yellow-800 px-1 rounded">{r}</span>
+                          ))}
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div>
             <label className="label">Due Date *</label>
             <input
@@ -134,13 +221,15 @@ export default function NewRequest() {
                   <button
                     key={sme.id}
                     type="button"
-                    onClick={() => { set('assigned_sme_id', sme.id); setSmeSearch(sme.name); }}
+                    onClick={() => selectSME(sme)}
                     className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors"
                   >
                     <div className="font-medium text-sm">{sme.name}</div>
                     <div className="text-xs text-gray-500">{sme.skillsets.slice(0, 3).join(', ')}</div>
                     {sme.avg_rating && (
-                      <div className="text-xs text-yellow-500">{'★'.repeat(Math.round(sme.avg_rating))} {parseFloat(sme.avg_rating).toFixed(1)}</div>
+                      <div className="text-xs text-yellow-500">
+                        {'★'.repeat(Math.round(sme.avg_rating))} {parseFloat(sme.avg_rating).toFixed(1)}
+                      </div>
                     )}
                   </button>
                 ))

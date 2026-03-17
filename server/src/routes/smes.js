@@ -9,7 +9,7 @@ router.get('/', auth, async (req, res) => {
   let sql = `
     SELECT id, name, nis_email, federal_email, teams_id, pm_name, pm_email,
            skillsets, certifications, contract_title, position, job_description,
-           clearance_level, ok_to_contact_directly, preferred_contact,
+           clearance_level, contact_availability, preferred_contact,
            notify_routing, avg_rating, rating_count, is_active, created_at
     FROM smes
     WHERE is_active = TRUE
@@ -33,6 +33,51 @@ router.get('/', auth, async (req, res) => {
 
   const { rows } = await db.query(sql, params);
   res.json(rows);
+});
+
+// POST /api/smes/bulk-import — import multiple SMEs from parsed spreadsheet data
+router.post('/bulk-import', auth, requireRole('proposal_manager', 'admin'), async (req, res) => {
+  const { smes: rows } = req.body;
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return res.status(400).json({ error: 'No SMEs provided' });
+  }
+
+  const VALID_CONTACT = ['no', 'yes (business hour)', 'yes (lunchtime)', 'yes (afterhour)'];
+  const VALID_PREFERRED = ['email', 'teams', 'call'];
+
+  let imported = 0, skipped = 0;
+  const errors = [];
+
+  for (const row of rows) {
+    if (!row.name || !String(row.name).trim()) { skipped++; continue; }
+    try {
+      await db.query(
+        `INSERT INTO smes (
+           name, skillsets, certifications, contract_title, position,
+           job_description, clearance_level, contact_availability,
+           preferred_contact, created_by
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [
+          String(row.name).trim(),
+          Array.isArray(row.skillsets) ? row.skillsets : [],
+          Array.isArray(row.certifications) ? row.certifications : [],
+          row.contract_title || null,
+          row.position || null,
+          row.job_description || null,
+          row.clearance_level || null,
+          VALID_CONTACT.includes(row.contact_availability) ? row.contact_availability : 'no',
+          VALID_PREFERRED.includes(row.preferred_contact) ? row.preferred_contact : 'email',
+          req.user.id,
+        ]
+      );
+      imported++;
+    } catch (err) {
+      errors.push({ name: row.name, error: err.message });
+      skipped++;
+    }
+  }
+
+  res.json({ imported, skipped, errors });
 });
 
 // GET /api/smes/:id — single SME with ratings and past requests
@@ -65,7 +110,7 @@ router.get('/:id', auth, async (req, res) => {
 router.post('/', auth, requireRole('proposal_manager', 'admin'), [
   body('name').notEmpty().trim(),
   body('skillsets').isArray({ min: 1 }),
-  body('preferred_contact').optional().isIn(['email', 'teams']),
+  body('preferred_contact').optional().isIn(['email', 'teams', 'call']),
   body('notify_routing').optional().isIn(['sme_only', 'pm_only', 'both']),
 ], async (req, res) => {
   const errors = validationResult(req);
@@ -75,7 +120,7 @@ router.post('/', auth, requireRole('proposal_manager', 'admin'), [
     name, nis_email, federal_email, teams_id,
     pm_name, pm_email, pm_teams_id, notify_routing,
     skillsets, certifications, contract_title, position,
-    job_description, clearance_level, ok_to_contact_directly,
+    job_description, clearance_level, contact_availability,
     preferred_contact,
   } = req.body;
 
@@ -84,7 +129,7 @@ router.post('/', auth, requireRole('proposal_manager', 'admin'), [
        name, nis_email, federal_email, teams_id,
        pm_name, pm_email, pm_teams_id, notify_routing,
        skillsets, certifications, contract_title, position,
-       job_description, clearance_level, ok_to_contact_directly,
+       job_description, clearance_level, contact_availability,
        preferred_contact, created_by
      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
      RETURNING *`,
@@ -92,7 +137,7 @@ router.post('/', auth, requireRole('proposal_manager', 'admin'), [
       name, nis_email || null, federal_email || null, teams_id || null,
       pm_name || null, pm_email || null, pm_teams_id || null, notify_routing || 'both',
       skillsets, certifications || [], contract_title || null, position || null,
-      job_description || null, clearance_level || null, ok_to_contact_directly || false,
+      job_description || null, clearance_level || null, contact_availability || 'no',
       preferred_contact || 'email', req.user.id,
     ]
   );
@@ -108,7 +153,7 @@ router.put('/:id', auth, requireRole('proposal_manager', 'admin'), async (req, r
     name, nis_email, federal_email, teams_id,
     pm_name, pm_email, pm_teams_id, notify_routing,
     skillsets, certifications, contract_title, position,
-    job_description, clearance_level, ok_to_contact_directly,
+    job_description, clearance_level, contact_availability,
     preferred_contact, is_active,
   } = req.body;
 
@@ -128,7 +173,7 @@ router.put('/:id', auth, requireRole('proposal_manager', 'admin'), async (req, r
        position = $12,
        job_description = $13,
        clearance_level = $14,
-       ok_to_contact_directly = COALESCE($15, ok_to_contact_directly),
+       contact_availability = COALESCE($15, contact_availability),
        preferred_contact = COALESCE($16, preferred_contact),
        is_active = COALESCE($17, is_active)
      WHERE id = $18
@@ -137,7 +182,7 @@ router.put('/:id', auth, requireRole('proposal_manager', 'admin'), async (req, r
       name, nis_email, federal_email, teams_id,
       pm_name, pm_email, pm_teams_id, notify_routing,
       skillsets, certifications, contract_title, position,
-      job_description, clearance_level, ok_to_contact_directly,
+      job_description, clearance_level, contact_availability,
       preferred_contact, is_active, req.params.id,
     ]
   );

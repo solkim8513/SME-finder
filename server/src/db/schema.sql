@@ -45,9 +45,10 @@ CREATE TABLE IF NOT EXISTS smes (
   position               VARCHAR(255),
   job_description        TEXT,
   clearance_level        VARCHAR(100),
-  ok_to_contact_directly BOOLEAN NOT NULL DEFAULT FALSE,
+  contact_availability   VARCHAR(30) NOT NULL DEFAULT 'no'
+                           CHECK (contact_availability IN ('no', 'yes (business hour)', 'yes (lunchtime)', 'yes (afterhour)')),
   preferred_contact      VARCHAR(10) NOT NULL DEFAULT 'email'
-                           CHECK (preferred_contact IN ('email', 'teams')),
+                           CHECK (preferred_contact IN ('email', 'teams', 'call')),
   is_active              BOOLEAN NOT NULL DEFAULT TRUE,
   avg_rating             NUMERIC(3,2),
   rating_count           INT NOT NULL DEFAULT 0,
@@ -151,3 +152,32 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER sme_requests_updated_at
 BEFORE UPDATE ON sme_requests
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ============================================================
+-- Migrations: safe to run on existing installs
+-- ============================================================
+DO $$ BEGIN
+  -- Add contact_availability if missing (replaces ok_to_contact_directly)
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'smes' AND column_name = 'contact_availability'
+  ) THEN
+    ALTER TABLE smes ADD COLUMN contact_availability VARCHAR(30) NOT NULL DEFAULT 'no';
+    -- Migrate existing boolean data
+    UPDATE smes SET contact_availability = CASE WHEN ok_to_contact_directly THEN 'yes (business hour)' ELSE 'no' END;
+  END IF;
+END $$;
+
+DO $$ DECLARE v_con TEXT; BEGIN
+  -- Expand preferred_contact to allow 'call'
+  SELECT conname INTO v_con FROM pg_constraint
+    WHERE conrelid = 'smes'::regclass AND contype = 'c' AND conname LIKE '%preferred_contact%';
+  IF v_con IS NOT NULL THEN
+    EXECUTE 'ALTER TABLE smes DROP CONSTRAINT ' || quote_ident(v_con);
+  END IF;
+  BEGIN
+    ALTER TABLE smes ADD CONSTRAINT smes_preferred_contact_check
+      CHECK (preferred_contact IN ('email', 'teams', 'call'));
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END;
+END $$;

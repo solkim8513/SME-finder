@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
+import BulkImportModal from './BulkImportModal';
 
 const CLEARANCE_OPTIONS = ['Public Trust', 'Secret', 'TS/SCI', 'Top Secret'];
 
@@ -21,6 +22,7 @@ export default function SMEList() {
   const [search, setSearch] = useState('');
   const [clearanceFilter, setClearanceFilter] = useState('');
   const [loading, setLoading] = useState(true);
+  const [showImport, setShowImport] = useState(false);
 
   async function loadSMEs() {
     setLoading(true);
@@ -45,7 +47,12 @@ export default function SMEList() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">SME Directory</h2>
-        {canManage && <Link to="/smes/new" className="btn-primary">+ Add SME</Link>}
+        {canManage && (
+          <div className="flex gap-2">
+            <button onClick={() => setShowImport(true)} className="btn-secondary">⬆ Bulk Import</button>
+            <Link to="/smes/new" className="btn-primary">+ Add SME</Link>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSearch} className="flex gap-3 flex-wrap">
@@ -114,7 +121,11 @@ export default function SMEList() {
                   </td>
                   <td className="px-4 py-3 text-gray-600">{sme.clearance_level || '—'}</td>
                   <td className="px-4 py-3">
-                    <span className={`badge ${sme.preferred_contact === 'teams' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}`}>
+                    <span className={`badge ${
+                      sme.preferred_contact === 'teams' ? 'bg-purple-100 text-purple-700'
+                      : sme.preferred_contact === 'call' ? 'bg-orange-100 text-orange-700'
+                      : 'bg-green-100 text-green-700'
+                    }`}>
                       {sme.preferred_contact}
                     </span>
                   </td>
@@ -130,6 +141,13 @@ export default function SMEList() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {showImport && (
+        <BulkImportModal
+          onClose={() => setShowImport(false)}
+          onImported={() => { loadSMEs(); }}
+        />
       )}
     </div>
   );
