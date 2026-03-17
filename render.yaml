@@ -1,0 +1,23 @@
+databases:
+  - name: sme-finder-db
+    plan: free
+    databaseName: sme_finder
+
+services:
+  - type: web
+    name: sme-finder
+    runtime: node
+    plan: free
+    buildCommand: npm run build && cd server && npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sme-finder-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLIENT_URL
+        sync: false

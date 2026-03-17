@@ -1,0 +1,11 @@
+{
+  "name": "sme-finder",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "cd client && npm install && npm run build",
+    "start": "node server/src/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
