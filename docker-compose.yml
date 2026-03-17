@@ -44,6 +44,7 @@ services:
     build: ./client
     environment:
       VITE_API_URL: http://server:5001
+      VITE_API_TARGET: ${VITE_API_TARGET:-http://server:5001}
     ports:
       - "3100:3100"
     depends_on:

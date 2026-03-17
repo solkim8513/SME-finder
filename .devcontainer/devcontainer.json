@@ -1,0 +1,25 @@
+{
+  "name": "SME Finder",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "client",
+  "workspaceFolder": "/app",
+  "waitFor": "onContainerStarted",
+  "postStartCommand": "echo 'SME Finder is running!'",
+  "forwardPorts": [3100, 5001, 5433],
+  "portsAttributes": {
+    "3100": {
+      "label": "SME Finder App",
+      "onAutoForward": "openBrowser",
+      "visibility": "public"
+    },
+    "5001": {
+      "label": "API Server",
+      "visibility": "public"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-azuretools.vscode-docker"]
+    }
+  }
+}

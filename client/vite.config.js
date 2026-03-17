@@ -7,7 +7,7 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 3100,
     proxy: {
-      '/api': { target: 'http://server:5001', changeOrigin: true },
+      '/api': { target: process.env.VITE_API_TARGET || 'http://server:5001', changeOrigin: true },
     },
   },
 });
