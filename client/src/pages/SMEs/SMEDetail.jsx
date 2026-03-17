@@ -23,7 +23,7 @@ export default function SMEDetail() {
 
   const canManage = ['proposal_manager', 'admin'].includes(user?.role);
 
-  if (!sme) return <p className="text-gray-500">Loading…</p>;
+  if (!sme) return <p className="text-gray-500">Loading...</p>;
 
   const routingLabels = {
     sme_only: 'SME only',
@@ -36,7 +36,12 @@ export default function SMEDetail() {
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">{sme.name}</h2>
-          {sme.contract_title && <p className="text-gray-500">{sme.contract_title} — {sme.position}</p>}
+          {sme.contract_title && (
+            <p className="text-gray-500">
+              {sme.contract_title}
+              {sme.position ? ` - ${sme.position}` : ''}
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           {canManage && <Link to={`/smes/${id}/edit`} className="btn-secondary">Edit</Link>}
@@ -47,22 +52,25 @@ export default function SMEDetail() {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        {/* Profile */}
         <div className="card space-y-3">
           <h3 className="font-semibold text-gray-800">Profile</h3>
-          <Row label="Clearance" value={sme.clearance_level || '—'} />
-          <Row label="OK to contact directly" value={sme.ok_to_contact_directly ? 'Yes' : 'No'} />
+          <Row label="Clearance" value={sme.clearance_level || '-'} />
+          <Row label="OK to contact directly" value={sme.contact_availability || 'no'} />
           <div>
             <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Skillsets</span>
             <div className="flex flex-wrap gap-1 mt-1">
-              {sme.skillsets.map(s => <span key={s} className="badge bg-blue-100 text-blue-700">{s}</span>)}
+              {sme.skillsets.map(s => (
+                <span key={s} className="badge bg-blue-100 text-blue-700">{s}</span>
+              ))}
             </div>
           </div>
           {sme.certifications.length > 0 && (
             <div>
               <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Certifications</span>
               <div className="flex flex-wrap gap-1 mt-1">
-                {sme.certifications.map(c => <span key={c} className="badge bg-gray-100 text-gray-600">{c}</span>)}
+                {sme.certifications.map(c => (
+                  <span key={c} className="badge bg-gray-100 text-gray-600">{c}</span>
+                ))}
               </div>
             </div>
           )}
@@ -74,35 +82,38 @@ export default function SMEDetail() {
           )}
         </div>
 
-        {/* Contact */}
         <div className="card space-y-3">
           <h3 className="font-semibold text-gray-800">Contact & Routing</h3>
           <Row label="Preferred channel" value={sme.preferred_contact} />
           <Row label="Notification routing" value={routingLabels[sme.notify_routing]} />
-          <Row label="Federal / active email" value={sme.federal_email || '—'} />
-          <Row label="NIS email" value={sme.nis_email || '—'} />
-          <Row label="Teams ID" value={sme.teams_id || '—'} />
+          <Row label="Federal / active email" value={sme.federal_email || '-'} />
+          <Row label="NIS email" value={sme.nis_email || '-'} />
           {sme.pm_name && (
             <>
               <div className="border-t pt-2">
                 <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Project Manager</span>
               </div>
               <Row label="PM Name" value={sme.pm_name} />
-              <Row label="PM Email" value={sme.pm_email || '—'} />
-              <Row label="PM Teams ID" value={sme.pm_teams_id || '—'} />
+              <Row label="PM Email" value={sme.pm_email || '-'} />
             </>
           )}
         </div>
       </div>
 
-      {/* Rating summary */}
       <div className="card">
         <h3 className="font-semibold text-gray-800 mb-3">
           Usefulness Rating
           {sme.avg_rating ? (
-            <span className="ml-3 text-yellow-500 text-lg">{'★'.repeat(Math.round(sme.avg_rating))}{'☆'.repeat(5 - Math.round(sme.avg_rating))}</span>
+            <span className="ml-3 text-yellow-500 text-lg">
+              {'★'.repeat(Math.round(sme.avg_rating))}
+              {'☆'.repeat(5 - Math.round(sme.avg_rating))}
+            </span>
           ) : null}
-          {sme.avg_rating && <span className="text-gray-500 text-sm ml-2">{parseFloat(sme.avg_rating).toFixed(1)} avg ({sme.rating_count} rating{sme.rating_count !== 1 ? 's' : ''})</span>}
+          {sme.avg_rating && (
+            <span className="text-gray-500 text-sm ml-2">
+              {parseFloat(sme.avg_rating).toFixed(1)} avg ({sme.rating_count} rating{sme.rating_count !== 1 ? 's' : ''})
+            </span>
+          )}
         </h3>
         {sme.ratings?.length ? (
           <div className="space-y-2">
@@ -119,7 +130,6 @@ export default function SMEDetail() {
         )}
       </div>
 
-      {/* Recent requests */}
       <div className="card">
         <h3 className="font-semibold text-gray-800 mb-3">Recent Requests</h3>
         {sme.recent_requests?.length ? (
@@ -159,7 +169,7 @@ export default function SMEDetail() {
 
 function Row({ label, value }) {
   return (
-    <div className="flex justify-between text-sm">
+    <div className="flex justify-between text-sm gap-4">
       <span className="text-gray-500">{label}</span>
       <span className="text-gray-800 font-medium text-right max-w-xs truncate">{value}</span>
     </div>

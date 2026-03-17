@@ -102,6 +102,19 @@ CREATE TABLE IF NOT EXISTS sme_notifications (
 );
 
 -- ============================================================
+-- Request Team Log (shared status updates / coordination notes)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS sme_request_logs (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id UUID NOT NULL REFERENCES sme_requests(id) ON DELETE CASCADE,
+  user_id    UUID REFERENCES users(id) ON DELETE SET NULL,
+  entry_type VARCHAR(20) NOT NULL DEFAULT 'comment'
+               CHECK (entry_type IN ('comment', 'system')),
+  message    TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
 -- SME Usefulness Ratings (post-completion, optional)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS sme_ratings (

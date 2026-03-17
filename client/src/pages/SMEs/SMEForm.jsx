@@ -46,10 +46,8 @@ export default function SMEForm() {
     name: '',
     nis_email: '',
     federal_email: '',
-    teams_id: '',
     pm_name: '',
     pm_email: '',
-    pm_teams_id: '',
     notify_routing: 'both',
     skillsets: [],
     certifications: [],
@@ -70,10 +68,8 @@ export default function SMEForm() {
           name: s.name || '',
           nis_email: s.nis_email || '',
           federal_email: s.federal_email || '',
-          teams_id: s.teams_id || '',
           pm_name: s.pm_name || '',
           pm_email: s.pm_email || '',
-          pm_teams_id: s.pm_teams_id || '',
           notify_routing: s.notify_routing || 'both',
           skillsets: s.skillsets || [],
           certifications: s.certifications || [],
@@ -182,11 +178,6 @@ export default function SMEForm() {
             </div>
           </div>
 
-          <div>
-            <label className="label">Teams ID (UPN)</label>
-            <input className="input" value={form.teams_id} onChange={e => set('teams_id', e.target.value)} placeholder="name@company.gov" />
-          </div>
-
           <div className="border-t pt-4 space-y-3">
             <h4 className="text-sm font-semibold text-gray-700">Project Manager (intermediary)</h4>
             <div className="grid grid-cols-2 gap-4">
@@ -198,10 +189,6 @@ export default function SMEForm() {
                 <label className="label">PM Email</label>
                 <input className="input" type="email" value={form.pm_email} onChange={e => set('pm_email', e.target.value)} />
               </div>
-            </div>
-            <div>
-              <label className="label">PM Teams ID</label>
-              <input className="input" value={form.pm_teams_id} onChange={e => set('pm_teams_id', e.target.value)} />
             </div>
           </div>
 
